@@ -5,5 +5,6 @@ module.exports = function(Book) {
     
     Book.on('attached', function() {
         console.log('Attached:', Book.modelName);
+        Book.mixin('TimeStamp');
     });
 };

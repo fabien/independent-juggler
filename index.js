@@ -6,11 +6,13 @@ var async = require('async');
 var Registry = function(juggler, options) {
     this.dataSources = {};
     this.juggler = juggler;
+    this.modelBuilder = new juggler.ModelBuilder();
     options = _.extend({}, options);
     
     var rootDir = options.dir || process.cwd();
     var configDir = path.join(rootDir, 'config');
     var modelsDir = path.join(rootDir, 'models');
+    var mixinsDir = path.join(rootDir, 'mixins');
     var env = options.env || process.env.NODE_ENV || 'development';
     
     var datasourceConfig = _.extend({}, options.datasources);
@@ -20,7 +22,11 @@ var Registry = function(juggler, options) {
     mergeConfigFiles(datasourceConfig, datasourceConfigs);
     
     var modelConfigs = findConfigFiles(configDir, env, 'model-config');
-    var modelSources = [modelsDir].concat(mergeConfigFiles(modelConfig, modelConfigs));
+    
+    var resolved = mergeConfigFiles(modelConfig, modelConfigs);
+    
+    var modelSources = [modelsDir].concat(resolved.models);
+    var mixinSources = [mixinsDir].concat(resolved.mixins);
     
     _.each(datasourceConfig, function(config, name) {
         config = config || {};
@@ -31,6 +37,7 @@ var Registry = function(juggler, options) {
     if (_.isEmpty(modelConfig)) throw new Error('No Models configured');
     
     this.modelDefinitions = this.loadModelDefinitions(modelSources);
+    this.loadMixinDefinitions(mixinSources);
 };
 
 Registry.prototype.connect = function(callback) {
@@ -65,7 +72,7 @@ Registry.prototype.disconnect = function(callback) {
 
 Registry.prototype.createDataSource = function(name, options) {
     var DataSource = this.juggler.DataSource;
-    return new DataSource(name, options);
+    return new DataSource(name, options, this.modelBuilder);
 };
 
 Registry.prototype.loadModelDefinitions = function(sourcePaths) {
@@ -101,6 +108,24 @@ Registry.prototype.loadModelDefinitions = function(sourcePaths) {
         if (definition.load) models[definition.name] = definition;
     });
     return models;
+};
+
+Registry.prototype.loadMixinDefinitions = function(sourcePaths) {
+    var modelBuilder = this.modelBuilder;
+    _.each(sourcePaths, function(sourceDir) {
+        var files = tryReadDir(sourceDir);
+        _.each(files, function(filename) {
+            var filepath = path.join(sourceDir, filename);
+            var ext = path.extname(filename);
+            if (ext === '.js') {
+                var name = classify(path.basename(filename, ext));
+                var fn = require(filepath);
+                if (_.isFunction(fn)) {
+                    modelBuilder.mixins.define(name, fn);
+                }
+            }
+        });
+    });
 };
 
 Registry.prototype.defineModels = function(dataSource, schemas) {
@@ -176,23 +201,32 @@ function loadConfigFiles(files) {
 };
 
 function mergeConfigFiles(config, files) {
-    var sources = [];
+    var modelSources = [];
+    var mixinSources = [];
     _.each(loadConfigFiles(files), function(c) {
         if (!_.isObject(c)) return;
+        var dirname = path.dirname(c._filename);
         if (_.isObject(c._meta) && _.isArray(c._meta.sources)) {
-            var dirname = path.dirname(c._filename);
-            var configSources = _.map(c._meta.sources, function(src) {
-                if (_.isString(src) && src.indexOf('.') === 0) {
-                    return path.resolve(dirname, src);
-                } else {
-                    return src;
-                }
-            });
-            sources = sources.concat(configSources);
+            var resolvedModels = resolveSources(dirname, c._meta.sources);
+            modelSources = modelSources.concat(resolvedModels);
+        }
+        if (_.isObject(c._meta) && _.isArray(c._meta.mixins)) {
+            var resolvedMixins = resolveSources(dirname, c._meta.mixins);
+            mixinSources = mixinSources.concat(resolvedMixins);
         }
         _.merge(config, _.omit(c, '_meta'));
     });
-    return sources;
+    return { models: modelSources, mixins: mixinSources };
+};
+
+function resolveSources(dirname, sources) {
+    return _.map(sources, function(src) {
+        if (_.isString(src) && src.indexOf('.') === 0) {
+            return path.resolve(dirname, src);
+        } else {
+            return src;
+        }
+    });
 };
 
 function tryReadDir() {
