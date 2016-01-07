@@ -1,0 +1,18 @@
+{
+  "name": "Book",
+  "properties": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "description": {
+      "type": "string"
+    }
+  },
+  "relations": {
+    "author": {
+      "type": "belongsTo",
+      "model": "Author"
+    }
+  }
+}

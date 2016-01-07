@@ -1,0 +1,15 @@
+{
+  "name": "Author",
+  "properties": {
+    "name": {
+      "type": "string",
+      "required": true
+    }
+  },
+  "relations": {
+     "books": {
+       "type": "hasMany",
+       "model": "Book"
+     }
+   }
+}

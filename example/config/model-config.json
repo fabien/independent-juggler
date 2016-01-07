@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "sources": ["../shared"]
+  },
+  "Book": {
+    "dataSource": "db"
+  },
+  "Author": {
+    "dataSource": "db"
+  }
+}
