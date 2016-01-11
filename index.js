@@ -10,9 +10,9 @@ var Registry = function(juggler, options) {
     options = _.extend({}, options);
     
     var rootDir = options.dir || process.cwd();
-    var configDir = path.join(rootDir, 'config');
-    var modelsDir = path.join(rootDir, 'models');
-    var mixinsDir = path.join(rootDir, 'mixins');
+    var configDir = options.configDir || path.join(rootDir, 'config');
+    var modelsDir = options.modelsDir || path.join(rootDir, 'models');
+    var mixinsDir = options.mixinsDir || path.join(rootDir, 'mixins');
     var env = options.env || process.env.NODE_ENV || 'development';
     
     var datasourceConfig = _.extend({}, options.datasources);
