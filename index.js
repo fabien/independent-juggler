@@ -70,6 +70,11 @@ Registry.prototype.disconnect = function(callback) {
     }, callback);
 };
 
+Registry.prototype.setupDataSource = function(name, options) {
+    this.dataSources[name] = this.createDataSource(name, options);
+    return this.dataSources[name];
+};
+
 Registry.prototype.createDataSource = function(name, options) {
     var DataSource = this.juggler.DataSource;
     return new DataSource(name, options, this.modelBuilder);
