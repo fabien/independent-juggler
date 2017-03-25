@@ -41,7 +41,7 @@ var Registry = function(juggler, options) {
 };
 
 Registry.prototype.connect = function(callback) {
-    if (this.models) return this.models;
+    if (this.models) return callback && callback(err, this.models);
     var dataSources = _.groupBy(this.modelDefinitions, 'dataSource');
     var models = this.models = {};
     _.each(dataSources, function(definitions, dataSource) {
@@ -67,7 +67,11 @@ Registry.prototype.disconnect = function(callback) {
     var dataSources = this.dataSources;
     async.each(_.keys(dataSources), function(name, next) {
         dataSources[name].disconnect(next);
-    }, callback);
+    }, function(err) {
+        var models = this.models;
+        delete this.models;
+        callback && callback(err, models);
+    }.bind(this));
 };
 
 Registry.prototype.setupDataSource = function(name, options) {
