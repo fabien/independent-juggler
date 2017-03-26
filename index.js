@@ -13,6 +13,13 @@ var Registry = function(juggler, options) {
     var configDir = options.configDir || path.join(rootDir, 'config');
     var modelsDir = options.modelsDir || path.join(rootDir, 'models');
     var mixinsDir = options.mixinsDir || path.join(rootDir, 'mixins');
+    
+    if (options.withinApplication === true) {
+        configDir = options.configDir || path.join(rootDir, 'server');
+        modelsDir = options.modelsDir || path.join(rootDir, 'common', 'models');
+        mixinsDir = options.mixinsDir || path.join(rootDir, 'common', 'mixins');
+    }
+    
     var env = options.env || process.env.NODE_ENV || 'development';
     
     var datasourceConfig = _.extend({}, options.datasources);
@@ -27,6 +34,10 @@ var Registry = function(juggler, options) {
     
     var modelSources = [modelsDir].concat(resolved.models);
     var mixinSources = [mixinsDir].concat(resolved.mixins);
+    
+    if (_.isString(options.configure) || _.isArray(options.configure)) {
+        datasourceConfig = _.pick(datasourceConfig, options.configure);
+    }
     
     _.each(datasourceConfig, function(config, name) {
         config = config || {};
@@ -86,9 +97,20 @@ Registry.prototype.createDataSource = function(name, options) {
 };
 
 Registry.prototype.loadModelDefinitions = function(sourcePaths) {
-    var modelConfig = this.modelConfig || {};
     var modelDefinitions = {};
     var props = ['name', 'properties', 'options'];
+    var dataSources = _.keys(this.dataSources);
+    var modelConfig = this.modelConfig || {};
+    
+    this.modelConfig = _.reduce(modelConfig, function(config, c, modelName) {
+        if (_.include(dataSources, c.dataSource)) {
+            config[modelName] = c;
+        }
+        return config;
+    }, {});
+    
+    modelConfig = this.modelConfig;
+    
     _.each(sourcePaths, function(sourceDir) {
         var files = tryReadDir(sourceDir);
         _.each(files, function(filename) {
@@ -102,10 +124,14 @@ Registry.prototype.loadModelDefinitions = function(sourcePaths) {
                 modelDefinitions[name] = modelDefinitions[name] || {};
                 modelDefinitions[name].definition = definition;
                 var modelName = definition.name || classify(name);
-                modelDefinitions[name].name = definition.name || classify(name);
-                modelDefinitions[name].load = _.isObject(modelConfig[modelName]);
-                if (modelDefinitions[name].load && modelConfig[modelName].dataSource) {
-                    modelDefinitions[name].dataSource = modelConfig[modelName].dataSource;
+                var hasConfig = _.isObject(modelConfig[modelName]);
+                var dataSource = hasConfig && modelConfig[modelName].dataSource;
+                if (_.include(dataSources, dataSource)) {
+                    modelDefinitions[name].name = modelName;
+                    modelDefinitions[name].load = true;
+                    modelDefinitions[name].dataSource = dataSource;
+                } else {
+                    delete modelDefinitions[name];
                 }
             } else if (ext === '.js') {
                 modelDefinitions[name] = modelDefinitions[name] || {};
