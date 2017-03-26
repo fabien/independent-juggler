@@ -33,15 +33,16 @@ var Registry = function(juggler, options) {
         this.dataSources[config.name || name] = this.createDataSource(name, config);
     }.bind(this));
     
-    if (_.isEmpty(this.dataSources)) throw new Error('No DataSources configured');
-    if (_.isEmpty(modelConfig)) throw new Error('No Models configured');
-    
     this.modelDefinitions = this.loadModelDefinitions(modelSources);
     this.loadMixinDefinitions(mixinSources);
 };
 
 Registry.prototype.connect = function(callback) {
     if (this.models) return callback && callback(err, this.models);
+    
+    if (_.isEmpty(this.dataSources)) throw new Error('No DataSources configured');
+    if (_.isEmpty(this.modelConfig)) throw new Error('No Models configured');
+    
     var dataSources = _.groupBy(this.modelDefinitions, 'dataSource');
     var models = this.models = {};
     _.each(dataSources, function(definitions, dataSource) {
